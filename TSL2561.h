@@ -1,4 +1,3 @@
-
 /**************************************************************************/
 /*! 
     @file     tsl2561.h
@@ -37,13 +36,8 @@
 
 #ifndef _TSL2561_H_
 #define _TSL2561_H_
-
-#if ARDUINO >= 100
- #include <Arduino.h>
-#else
- #include <WProgram.h>
-#endif
-#include <Wire.h>
+#include <stdio.h>
+#include <stdint.h>
 
 #define TSL2561_VISIBLE 2                   // channel 0 - channel 1
 #define TSL2561_INFRARED 1                  // channel 1
@@ -154,15 +148,15 @@ tsl2561IntegrationTime_t;
 typedef enum
 {
   TSL2561_GAIN_0X                   = 0x00,    // No gain
-  TSL2561_GAIN_16X                  = 0x10,    // 16x gain
+  TSL2561_GAIN_16X                  = 0x10    // 16x gain
 }
 tsl2561Gain_t;
 
-
-class TSL2561 {
+class TSL2561{
  public:
-  TSL2561(uint8_t addr);
-  boolean begin(void);
+  TSL2561(uint8_t addr, unsigned char bus);
+  ~TSL2561(void);
+  bool begin(void);
   void enable(void);
   void disable(void);
   void write8(uint8_t r, uint8_t v);
@@ -175,10 +169,12 @@ class TSL2561 {
   uint32_t getFullLuminosity ();
 
  private:
+  int fd;
   int8_t _addr;
+  unsigned char _bus;
   tsl2561IntegrationTime_t _integration;
   tsl2561Gain_t _gain;
 
-  boolean _initialized;
+  bool _initialized;
 };
 #endif

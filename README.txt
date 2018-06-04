@@ -1,4 +1,4 @@
-This is an Arduino library for the TSL2561 digital luminosity (light) sensors. 
+This is an Armadillo library for the TSL2561 digital luminosity (light) sensors. 
 
 Pick one up at http://www.adafruit.com/products/439
 

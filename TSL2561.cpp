@@ -34,18 +34,21 @@
 */
 /**************************************************************************/
 
-#if defined ( ESP8266 )
-  #include <pgmspace.h>
-#else
-  #include <avr/pgmspace.h>
-  #include <util/delay.h>
-#endif
+//#include <avr/pgmspace.h>
+//#include <util/delay.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/i2c-dev.h>
 
 #include "TSL2561.h"
 
-TSL2561::TSL2561(uint8_t addr) {
+TSL2561::TSL2561(uint8_t addr, unsigned char bus) {
   _addr = addr;
+  _bus = bus;
   _initialized = false;
   _integration = TSL2561_INTEGRATIONTIME_13MS;
   _gain = TSL2561_GAIN_16X;
@@ -53,30 +56,25 @@ TSL2561::TSL2561(uint8_t addr) {
   // we cant do wire initialization till later, because we havent loaded Wire yet
 }
 
-boolean TSL2561::begin(void) {
-  Wire.begin();
+TSL2561::~TSL2561(void) {
+  close(this->fd);
+}
 
- // Initialise I2C
-  Wire.beginTransmission(_addr);
-#if ARDUINO >= 100
-  Wire.write(TSL2561_REGISTER_ID);
-#else
-  Wire.send(TSL2561_REGISTER_ID);
-#endif
-  Wire.endTransmission();
-  Wire.requestFrom(_addr, 1);
-#if ARDUINO >= 100
-  int x = Wire.read();
-#else
-  int x = Wire.receive();
-#endif
-  //Serial.print("0x"); Serial.println(x, HEX);
-  if (x & 0x0A ) {
-    //Serial.println("Found TSL2561");
-  } else {
-    return false;
-  }
+bool TSL2561::begin(void) {
   _initialized = true;
+  char i2c_dev_fn[64];
+
+  sprintf(i2c_dev_fn, "/dev/i2c-%d",_bus);
+
+  if ((this->fd = open(i2c_dev_fn, O_RDWR)) < 0) {
+                printf("Faild to open i2c port\n");
+                return false;
+  }
+
+  if(ioctl(this->fd, I2C_SLAVE, _addr)<0){
+                printf("Faild to open i2c port\n");
+                return false;
+  }
 
   // Set default integration time and gain
   setTiming(_integration);
@@ -221,13 +219,13 @@ uint32_t TSL2561::getFullLuminosity (void)
   switch (_integration)
   {
     case TSL2561_INTEGRATIONTIME_13MS:
-      delay(14);
+      usleep(14000);
       break;
     case TSL2561_INTEGRATIONTIME_101MS:
-      delay(102);
+      usleep(102000);
       break;
     default:
-      delay(403);
+      usleep(403000);
       break;
   }
 
@@ -259,29 +257,13 @@ uint16_t TSL2561::getLuminosity (uint8_t channel) {
   return 0;
 }
 
-
 uint16_t TSL2561::read16(uint8_t reg)
 {
-  uint16_t x; uint16_t t;
+  uint16_t x;
 
-  Wire.beginTransmission(_addr);
-#if ARDUINO >= 100
-  Wire.write(reg);
-#else
-  Wire.send(reg);
-#endif
-  Wire.endTransmission();
+	write(this->fd,&reg,1);
+	read(this->fd,&x,2);
 
-  Wire.requestFrom(_addr, 2);
-#if ARDUINO >= 100
-  t = Wire.read();
-  x = Wire.read();
-#else
-  t = Wire.receive();
-  x = Wire.receive();
-#endif
-  x <<= 8;
-  x |= t;
   return x;
 }
 
@@ -289,13 +271,6 @@ uint16_t TSL2561::read16(uint8_t reg)
 
 void TSL2561::write8 (uint8_t reg, uint8_t value)
 {
-  Wire.beginTransmission(_addr);
-#if ARDUINO >= 100
-  Wire.write(reg);
-  Wire.write(value);
-#else
-  Wire.send(reg);
-  Wire.send(value);
-#endif
-  Wire.endTransmission();
+ 	write(this->fd, &reg, 1);
+	write(this->fd, &value, 1);
 }
